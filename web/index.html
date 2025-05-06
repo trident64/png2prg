@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PNG2PRG Web Converter</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .container {
+            border: 1px solid #ddd;
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="text"], select {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #status {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .loading {
+            background-color: #e2e3e5;
+            color: #383d41;
+            border: 1px solid #d6d8db;
+        }
+        .hidden {
+            display: none;
+        }
+        .options-toggle {
+            margin-bottom: 15px;
+            cursor: pointer;
+            color: #0066cc;
+        }
+        .advanced-options {
+            border-top: 1px solid #eee;
+            padding-top: 15px;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+    <h1>PNG2PRG Web Converter</h1>
+
+    <div class="container">
+        <p>This is a web version of Burglar's <a href="https://github.com/staD020/png2prg/tree/master">png2prg</a>. It lets you convert PNG images to C64 PRG files directly in your browser. Enter the URL of a PNG image and click "Convert".</p>
+
+        <div>
+            <label for="imageUrl">Image URL:</label>
+            <input type="text" id="imageUrl" placeholder="https://example.com/image.png" required>
+        </div>
+
+        <div class="options-toggle" id="optionsToggle">
+            ▶ Show Advanced Options
+        </div>
+
+        <div class="advanced-options hidden" id="advancedOptions">
+            <div>
+                <label for="mode">Graphics Mode:</label>
+                <select id="mode">
+                    <option value="">Auto-detect</option>
+                    <option value="koala">Koala (Multicolor Bitmap)</option>
+                    <option value="hires">Hires (Singlecolor Bitmap)</option>
+                    <option value="mixedcharset">Mixed Charset</option>
+                    <option value="mccharset">Multicolor Charset</option>
+                    <option value="sccharset">Singlecolor Charset</option>
+                    <option value="petscii">PETSCII</option>
+                    <option value="ecm">ECM</option>
+                    <option value="mcsprites">Multicolor Sprites</option>
+                    <option value="scsprites">Singlecolor Sprites</option>
+                </select>
+            </div>
+
+            <div>
+                <label for="bitpairColors">Bitpair Colors (comma-separated, e.g. "0,6,14,3"):</label>
+                <input type="text" id="bitpairColors" placeholder="e.g. 0,6,14,3">
+            </div>
+
+            <div>
+                <label>
+                    <input type="checkbox" id="display" checked>
+                    Include Displayer
+                </label>
+            </div>
+
+            <div>
+                <label>
+                    <input type="checkbox" id="bruteForce">
+                    Brute Force Optimization
+                </label>
+            </div>
+        </div>
+
+        <div style="margin-top: 20px;">
+            <button id="convertButton">Convert</button>
+            <button id="downloadButton" class="hidden">Download PRG</button>
+        </div>
+
+        <div id="status" class="hidden"></div>
+    </div>
+
+    <div class="container">
+        <h3>About PNG2PRG</h3>
+        <p>PNG2PRG converts PNG/GIF/JPEG images to C64 graphics formats (hires or multicolor bitmap, charset, PETSCII, ECM or sprites). It automatically finds the best matching palette and colors.</p>
+        <p>This web version uses WebAssembly to run the original Go code directly in your browser.</p>
+    </div>
+
+    <script src="wasm_exec.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Set up WebAssembly
+            const go = new Go();
+
+            try {
+                const result = await WebAssembly.instantiateStreaming(
+                    fetch("png2prg.wasm"),
+                    go.importObject
+                );
+                go.run(result.instance);
+                console.log("WebAssembly loaded successfully");
+            } catch (err) {
+                showStatus(`Failed to load WebAssembly: ${err.message}`, 'error');
+                console.error("WebAssembly error:", err);
+                return;
+            }
+
+            // Toggle advanced options
+            const optionsToggle = document.getElementById('optionsToggle');
+            const advancedOptions = document.getElementById('advancedOptions');
+
+            optionsToggle.addEventListener('click', () => {
+                const isHidden = advancedOptions.classList.contains('hidden');
+                if (isHidden) {
+                    advancedOptions.classList.remove('hidden');
+                    optionsToggle.textContent = '▼ Hide Advanced Options';
+                } else {
+                    advancedOptions.classList.add('hidden');
+                    optionsToggle.textContent = '▶ Show Advanced Options';
+                }
+            });
+
+            // Handle conversion
+            const convertButton = document.getElementById('convertButton');
+            const downloadButton = document.getElementById('downloadButton');
+            let prgData = null;
+
+            convertButton.addEventListener('click', async () => {
+                const imageUrl = document.getElementById('imageUrl').value.trim();
+
+                if (!imageUrl) {
+                    showStatus('Please enter an image URL', 'error');
+                    return;
+                }
+
+                showStatus('Converting image...', 'loading');
+                downloadButton.classList.add('hidden');
+
+                // Get options
+                const options = {
+                    mode: document.getElementById('mode').value,
+                    bitpairColors: document.getElementById('bitpairColors').value,
+                    display: document.getElementById('display').checked,
+                    bruteForce: document.getElementById('bruteForce').checked
+                };
+
+                try {
+                    // Call the WebAssembly function
+                    const result = await convertPngToPrg(imageUrl, options);
+
+                    if (result.error) {
+                        showStatus(result.error, 'error');
+                        return;
+                    }
+
+                    // Store the data for download
+                    prgData = result.data;
+
+                    showStatus(`Conversion successful! File size: ${result.size} bytes`, 'success');
+                    downloadButton.classList.remove('hidden');
+                } catch (err) {
+                    showStatus(`Conversion error: ${err.message}`, 'error');
+                    console.error("Conversion error:", err);
+                }
+            });
+
+            // Handle download
+            downloadButton.addEventListener('click', () => {
+                if (!prgData) {
+                    showStatus('No data available to download', 'error');
+                    return;
+                }
+
+                const blob = new Blob([prgData], {type: 'application/octet-stream'});
+                const url = URL.createObjectURL(blob);
+
+                const a = document.createElement('a');
+                a.href = url;
+
+                // Extract filename from URL or use default
+                const imageUrl = document.getElementById('imageUrl').value.trim();
+                let filename = 'output.prg';
+
+                try {
+                    const urlObj = new URL(imageUrl);
+                    const pathParts = urlObj.pathname.split('/');
+                    const originalFilename = pathParts[pathParts.length - 1];
+
+                    if (originalFilename) {
+                        // Change extension to .prg
+                        const nameParts = originalFilename.split('.');
+                        if (nameParts.length > 1) {
+                            nameParts.pop();
+                        }
+                        filename = nameParts.join('.') + '.prg';
+                    }
+                } catch (e) {
+                    // Use default filename if URL parsing fails
+                    console.log("Using default filename due to URL parsing error");
+                }
+
+                a.download = filename;
+                a.click();
+
+                // Clean up
+                setTimeout(() => {
+                    URL.revokeObjectURL(url);
+                }, 100);
+            });
+
+            function showStatus(message, type) {
+                const statusElem = document.getElementById('status');
+                statusElem.textContent = message;
+                statusElem.className = type;
+                statusElem.classList.remove('hidden');
+            }
+        });
+    </script>
+</body>
+</html>

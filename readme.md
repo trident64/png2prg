@@ -659,10 +659,10 @@ and Acrouzet.
   -vv
     	very verbose, show memory usage map in most cases and implies -verbose
   -w int
-    	workers (default 12)
+    	workers (default 4)
   -wait-seconds int
     	seconds to wait before animation starts
   -workers int
-    	number of concurrent workers in -parallel or -brute-force mode (default 12)
+    	number of concurrent workers in -parallel or -brute-force mode (default 4)
 ```
 

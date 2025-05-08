@@ -80,17 +80,118 @@
             padding-top: 15px;
             margin-top: 15px;
         }
+        .separator-text {
+            text-align: center;
+            margin: 15px 0;
+            position: relative;
+        }
+        .separator-text:before, .separator-text:after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            width: 45%;
+            height: 1px;
+            background-color: #ddd;
+        }
+        .separator-text:before {
+            left: 0;
+        }
+        .separator-text:after {
+            right: 0;
+        }
+        .separator-text span {
+            display: inline-block;
+            padding: 0 10px;
+            background-color: white;
+            position: relative;
+            color: #777;
+        }
+        .drop-area {
+            border: 2px dashed #ccc;
+            border-radius: 5px;
+            padding: 20px;
+            text-align: center;
+            transition: all 0.3s ease;
+            margin-bottom: 15px;
+            position: relative;
+            min-height: 100px;
+        }
+        .drop-area.active {
+            border-color: #4CAF50;
+            background-color: rgba(76, 175, 80, 0.1);
+        }
+        .drop-message {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #666;
+        }
+        .drop-message img {
+            width: 48px;
+            height: 48px;
+            margin-bottom: 10px;
+            opacity: 0.6;
+        }
+        .file-label {
+            color: #4CAF50;
+            text-decoration: underline;
+            cursor: pointer;
+        }
+        .preview-container {
+            position: relative;
+            max-width: 100%;
+            margin: 0 auto;
+        }
+        .preview-container img {
+            max-width: 100%;
+            max-height: 300px;
+            display: block;
+            margin: 0 auto;
+            border-radius: 4px;
+        }
+        .remove-image-btn {
+            position: absolute;
+            top: -10px;
+            right: -10px;
+            background-color: #f44336;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 25px;
+            height: 25px;
+            font-size: 18px;
+            line-height: 1;
+            cursor: pointer;
+            padding: 0;
+        }
     </style>
 </head>
 <body>
     <h1>PNG2PRG Web Converter</h1>
 
     <div class="container">
-        <p>This is a web version of Burglar's <a href="https://github.com/staD020/png2prg/tree/master">png2prg</a>. It lets you convert PNG images to C64 PRG files directly in your browser. Enter the URL of a PNG image and click "Convert".</p>
+        <p>Convert PNG images to C64 PRG files directly in your browser. Enter the URL of a PNG image and click "Convert".</p>
 
         <div>
             <label for="imageUrl">Image URL:</label>
             <input type="text" id="imageUrl" placeholder="https://example.com/image.png" required>
+        </div>
+
+        <div class="separator-text">
+            <span>- OR -</span>
+        </div>
+
+        <div class="drop-area" id="dropArea">
+            <div class="drop-message">
+                <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath d='M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zm0 2v14h14V5H5zm8 6h3v2h-3v3h-2v-3H8v-2h3V8h2v3z'/%3E%3C/svg%3E" alt="Upload">
+                <p>Drop image here, paste from clipboard, or <label for="fileInput" class="file-label">select a file</label></p>
+            </div>
+            <input type="file" id="fileInput" accept="image/*" class="hidden">
+            <div id="previewContainer" class="preview-container hidden">
+                <img id="imagePreview" src="" alt="Preview">
+                <button id="removeImageBtn" class="remove-image-btn">×</button>
+            </div>
         </div>
 
         <div class="options-toggle" id="optionsToggle">
@@ -150,6 +251,9 @@
 
     <script src="wasm_exec.js"></script>
     <script>
+        let imageDataArray = null;
+        let imageFileName = null;
+
         document.addEventListener('DOMContentLoaded', async () => {
             // Set up WebAssembly
             const go = new Go();
@@ -166,6 +270,116 @@
                 console.error("WebAssembly error:", err);
                 return;
             }
+
+            // Set up drag and drop + paste handling
+            const dropArea = document.getElementById('dropArea');
+            const fileInput = document.getElementById('fileInput');
+            const imagePreview = document.getElementById('imagePreview');
+            const previewContainer = document.getElementById('previewContainer');
+            const removeImageBtn = document.getElementById('removeImageBtn');
+            const imageUrlInput = document.getElementById('imageUrl');
+
+            // Handle the drag and drop events
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                dropArea.addEventListener(eventName, preventDefaults, false);
+            });
+
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropArea.addEventListener(eventName, highlight, false);
+            });
+
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropArea.addEventListener(eventName, unhighlight, false);
+            });
+
+            function highlight() {
+                dropArea.classList.add('active');
+            }
+
+            function unhighlight() {
+                dropArea.classList.remove('active');
+            }
+
+            // Handle the dropped files
+            dropArea.addEventListener('drop', handleDrop, false);
+
+            function handleDrop(e) {
+                const dt = e.dataTransfer;
+                const files = dt.files;
+                if (files.length) {
+                    handleFiles(files);
+                }
+            }
+
+            // Handle file selection via input
+            fileInput.addEventListener('change', function() {
+                handleFiles(this.files);
+            });
+
+            // Handle paste from clipboard
+            document.addEventListener('paste', function(e) {
+                const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+                for (let i = 0; i < items.length; i++) {
+                    if (items[i].type.indexOf('image') !== -1) {
+                        const blob = items[i].getAsFile();
+                        const files = [blob];
+                        handleFiles(files);
+                        break;
+                    }
+                }
+            });
+
+            // Process the files (only the first one)
+            function handleFiles(files) {
+                if (files[0]) {
+                    const file = files[0];
+                    if (file.type.match(/image.*/)) {
+                        imageFileName = file.name;
+                        displayPreview(file);
+                        readFileAsArrayBuffer(file);
+                        // Clear the URL input as we're now using a file
+                        imageUrlInput.value = '';
+                    } else {
+                        showStatus('The selected file is not an image', 'error');
+                    }
+                }
+            }
+
+            // Display image preview
+            function displayPreview(file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    imagePreview.src = e.target.result;
+                    previewContainer.classList.remove('hidden');
+                    document.querySelector('.drop-message').classList.add('hidden');
+                };
+                reader.readAsDataURL(file);
+            }
+
+            // Read the file as ArrayBuffer for WASM
+            function readFileAsArrayBuffer(file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    imageDataArray = new Uint8Array(e.target.result);
+                    console.log("Image loaded as array buffer, size:", imageDataArray.length);
+                };
+                reader.readAsArrayBuffer(file);
+            }
+
+            // Remove preview image
+            removeImageBtn.addEventListener('click', function() {
+                previewContainer.classList.add('hidden');
+                document.querySelector('.drop-message').classList.remove('hidden');
+                imagePreview.src = '';
+                fileInput.value = '';
+                imageDataArray = null;
+                imageFileName = null;
+            });
 
             // Toggle advanced options
             const optionsToggle = document.getElementById('optionsToggle');
@@ -190,8 +404,9 @@
             convertButton.addEventListener('click', async () => {
                 const imageUrl = document.getElementById('imageUrl').value.trim();
 
-                if (!imageUrl) {
-                    showStatus('Please enter an image URL', 'error');
+                // Check if we have either a URL or image data
+                if (!imageUrl && !imageDataArray) {
+                    showStatus('Please enter an image URL or drop/paste an image', 'error');
                     return;
                 }
 
@@ -207,8 +422,27 @@
                 };
 
                 try {
-                    // Call the WebAssembly function
-                    const result = await convertPngToPrg(imageUrl, options);
+                    let promiseResult;
+
+                    // Call the WebAssembly function based on whether we have URL or image data
+                    if (imageUrl) {
+                        // URL-based conversion
+                        console.log("Converting from URL:", imageUrl);
+                        promiseResult = convertPngToPrg(imageUrl, options);
+                    } else {
+                        // Direct image data conversion
+                        console.log("Converting from image data, length:", imageDataArray.length);
+                        promiseResult = convertImageData(imageDataArray, options);
+                    }
+
+                    // Wait for the promise to resolve
+                    const result = await promiseResult;
+                    console.log("Conversion result:", result);
+
+                    if (!result) {
+                        showStatus('Conversion failed with an unknown error', 'error');
+                        return;
+                    }
 
                     if (result.error) {
                         showStatus(result.error, 'error');
@@ -221,7 +455,7 @@
                     showStatus(`Conversion successful! File size: ${result.size} bytes`, 'success');
                     downloadButton.classList.remove('hidden');
                 } catch (err) {
-                    showStatus(`Conversion error: ${err.message}`, 'error');
+                    showStatus(`Conversion error: ${err.message || err}`, 'error');
                     console.error("Conversion error:", err);
                 }
             });
@@ -239,26 +473,36 @@
                 const a = document.createElement('a');
                 a.href = url;
 
-                // Extract filename from URL or use default
-                const imageUrl = document.getElementById('imageUrl').value.trim();
+                // Extract filename based on source (file or URL)
                 let filename = 'output.prg';
 
-                try {
-                    const urlObj = new URL(imageUrl);
-                    const pathParts = urlObj.pathname.split('/');
-                    const originalFilename = pathParts[pathParts.length - 1];
-
-                    if (originalFilename) {
-                        // Change extension to .prg
-                        const nameParts = originalFilename.split('.');
-                        if (nameParts.length > 1) {
-                            nameParts.pop();
-                        }
-                        filename = nameParts.join('.') + '.prg';
+                if (imageFileName) {
+                    // If we have a direct image file, use its name
+                    const nameParts = imageFileName.split('.');
+                    if (nameParts.length > 1) {
+                        nameParts.pop();
                     }
-                } catch (e) {
-                    // Use default filename if URL parsing fails
-                    console.log("Using default filename due to URL parsing error");
+                    filename = nameParts.join('.') + '.prg';
+                } else {
+                    // Try to extract from URL
+                    const imageUrl = document.getElementById('imageUrl').value.trim();
+                    try {
+                        const urlObj = new URL(imageUrl);
+                        const pathParts = urlObj.pathname.split('/');
+                        const originalFilename = pathParts[pathParts.length - 1];
+
+                        if (originalFilename) {
+                            // Change extension to .prg
+                            const nameParts = originalFilename.split('.');
+                            if (nameParts.length > 1) {
+                                nameParts.pop();
+                            }
+                            filename = nameParts.join('.') + '.prg';
+                        }
+                    } catch (e) {
+                        // Use default filename if URL parsing fails
+                        console.log("Using default filename due to URL parsing error");
+                    }
                 }
 
                 a.download = filename;

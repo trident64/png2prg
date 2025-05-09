@@ -3,7 +3,9 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"net/url"
+	"os"
 	"syscall/js"
 
 	"github.com/staD020/png2prg" // Import the png2prg package
@@ -72,9 +74,6 @@ func tryNextProxy(proxyUrls []string, index int, resolve, reject js.Value, jsOpt
 	proxyUrl := proxyUrls[index]
 	fmt.Printf("Trying proxy URL: %s\n", proxyUrl)
 
-	// Inside tryNextProxy function, before creating processResponse
-	fmt.Printf("Fetching from proxy: %s\n", proxyUrl)
-
 	// Fetch the image through the proxy
 	fetchPromise := js.Global().Call("fetch", proxyUrl)
 
@@ -104,6 +103,12 @@ func tryNextProxy(proxyUrls []string, index int, resolve, reject js.Value, jsOpt
 
 				fmt.Printf("Image data received: %d bytes\n", len(bufferBytes))
 
+				// Save original stdout
+				oldStdout := os.Stdout
+				// Create a pipe to capture output
+				r, w, _ := os.Pipe()
+				os.Stdout = w
+
 				// Create options for PNG2PRG
 				options := png2prg.Options{
 					Display: true,  // Include displayer
@@ -124,6 +129,18 @@ func tryNextProxy(proxyUrls []string, index int, resolve, reject js.Value, jsOpt
 						fmt.Printf("Setting bitpair colors to: %s\n", options.BitpairColorsString)
 					}
 
+					// Set bitpair colors 2 if specified
+					if bpc2 := jsOptions.Get("bitpairColors2"); bpc2.Type() == js.TypeString && bpc2.String() != "" {
+						options.BitpairColorsString2 = bpc2.String()
+						fmt.Printf("Setting bitpair colors 2 to: %s\n", options.BitpairColorsString2)
+					}
+
+					// Set bitpair colors 3 if specified
+					if bpc3 := jsOptions.Get("bitpairColors3"); bpc3.Type() == js.TypeString && bpc3.String() != "" {
+						options.BitpairColorsString3 = bpc3.String()
+						fmt.Printf("Setting bitpair colors 3 to: %s\n", options.BitpairColorsString3)
+					}
+
 					// Set display option
 					if display := jsOptions.Get("display"); display.Type() == js.TypeBoolean {
 						options.Display = display.Bool()
@@ -135,6 +152,120 @@ func tryNextProxy(proxyUrls []string, index int, resolve, reject js.Value, jsOpt
 						options.BruteForce = bf.Bool()
 						fmt.Printf("Setting brute force option to: %v\n", options.BruteForce)
 					}
+
+					// Set interlace option
+					if interlace := jsOptions.Get("interlace"); interlace.Type() == js.TypeBoolean {
+						options.Interlace = interlace.Bool()
+						fmt.Printf("Setting interlace option to: %v\n", options.Interlace)
+					}
+
+					// Set force border color
+					if forceBorderColor := jsOptions.Get("forceBorderColor"); forceBorderColor.Type() == js.TypeNumber {
+						options.ForceBorderColor = forceBorderColor.Int()
+						fmt.Printf("Setting force border color to: %d\n", options.ForceBorderColor)
+					}
+
+					// Set force X offset
+					if forceXOffset := jsOptions.Get("forceXOffset"); forceXOffset.Type() == js.TypeNumber {
+						options.ForceXOffset = forceXOffset.Int()
+						fmt.Printf("Setting force X offset to: %d\n", options.ForceXOffset)
+					}
+
+					// Set force Y offset
+					if forceYOffset := jsOptions.Get("forceYOffset"); forceYOffset.Type() == js.TypeNumber {
+						options.ForceYOffset = forceYOffset.Int()
+						fmt.Printf("Setting force Y offset to: %d\n", options.ForceYOffset)
+					}
+
+					// Set no pack chars option
+					if noPackChars := jsOptions.Get("noPackChars"); noPackChars.Type() == js.TypeBoolean {
+						options.NoPackChars = noPackChars.Bool()
+						fmt.Printf("Setting no pack chars option to: %v\n", options.NoPackChars)
+					}
+
+					// Set no pack empty char option
+					if noPackEmptyChar := jsOptions.Get("noPackEmptyChar"); noPackEmptyChar.Type() == js.TypeBoolean {
+						options.NoPackEmptyChar = noPackEmptyChar.Bool()
+						fmt.Printf("Setting no pack empty char option to: %v\n", options.NoPackEmptyChar)
+					}
+
+					// Set force pack empty char option
+					if forcePackEmptyChar := jsOptions.Get("forcePackEmptyChar"); forcePackEmptyChar.Type() == js.TypeBoolean {
+						options.ForcePackEmptyChar = forcePackEmptyChar.Bool()
+						fmt.Printf("Setting force pack empty char option to: %v\n", options.ForcePackEmptyChar)
+					}
+
+					// Set no prev char colors option
+					if noPrevCharColors := jsOptions.Get("noPrevCharColors"); noPrevCharColors.Type() == js.TypeBoolean {
+						options.NoPrevCharColors = noPrevCharColors.Bool()
+						fmt.Printf("Setting no prev char colors option to: %v\n", options.NoPrevCharColors)
+					}
+
+					// Set no bitpair counters option
+					if noBitpairCounters := jsOptions.Get("noBitpairCounters"); noBitpairCounters.Type() == js.TypeBoolean {
+						options.NoBitpairCounters = noBitpairCounters.Bool()
+						fmt.Printf("Setting no bitpair counters option to: %v\n", options.NoBitpairCounters)
+					}
+
+					// Set no guess option
+					if noGuess := jsOptions.Get("noGuess"); noGuess.Type() == js.TypeBoolean {
+						options.NoGuess = noGuess.Bool()
+						fmt.Printf("Setting no guess option to: %v\n", options.NoGuess)
+					}
+
+					// Set alternative fade option
+					if alternativeFade := jsOptions.Get("alternativeFade"); alternativeFade.Type() == js.TypeBoolean {
+						options.AlternativeFade = alternativeFade.Bool()
+						fmt.Printf("Setting alternative fade option to: %v\n", options.AlternativeFade)
+					}
+
+					// Set no fade option
+					if noFade := jsOptions.Get("noFade"); noFade.Type() == js.TypeBoolean {
+						options.NoFade = noFade.Bool()
+						fmt.Printf("Setting no fade option to: %v\n", options.NoFade)
+					}
+
+					// Set no animation option
+					if noAnimation := jsOptions.Get("noAnimation"); noAnimation.Type() == js.TypeBoolean {
+						options.NoAnimation = noAnimation.Bool()
+						fmt.Printf("Setting no animation option to: %v\n", options.NoAnimation)
+					}
+
+					// Set frame delay
+					if frameDelay := jsOptions.Get("frameDelay"); frameDelay.Type() == js.TypeNumber {
+						options.FrameDelay = byte(frameDelay.Int())
+						fmt.Printf("Setting frame delay to: %d\n", options.FrameDelay)
+					}
+
+					// Set wait seconds
+					if waitSeconds := jsOptions.Get("waitSeconds"); waitSeconds.Type() == js.TypeNumber {
+						options.WaitSeconds = waitSeconds.Int()
+						fmt.Printf("Setting wait seconds to: %d\n", options.WaitSeconds)
+					}
+
+					// Set D016 offset
+					if d016Offset := jsOptions.Get("d016Offset"); d016Offset.Type() == js.TypeNumber {
+						options.D016Offset = d016Offset.Int()
+						fmt.Printf("Setting D016 offset to: %d\n", options.D016Offset)
+					}
+
+					// Set no crunch option
+					if noCrunch := jsOptions.Get("noCrunch"); noCrunch.Type() == js.TypeBoolean {
+						options.NoCrunch = noCrunch.Bool()
+						fmt.Printf("Setting no crunch option to: %v\n", options.NoCrunch)
+					}
+
+					// Set symbols option
+					if symbols := jsOptions.Get("symbols"); symbols.Type() == js.TypeBoolean {
+						options.Symbols = symbols.Bool()
+						fmt.Printf("Setting symbols option to: %v\n", options.Symbols)
+					}
+
+					// Set num workers
+					if numWorkers := jsOptions.Get("numWorkers"); numWorkers.Type() == js.TypeNumber {
+						options.NumWorkers = numWorkers.Int()
+						fmt.Printf("Setting num workers to: %d\n", options.NumWorkers)
+					}
 				}
 
 				// Convert the image to PRG
@@ -143,7 +274,17 @@ func tryNextProxy(proxyUrls []string, index int, resolve, reject js.Value, jsOpt
 				if err != nil {
 					errMsg := fmt.Sprintf("Failed to process image: %s", err.Error())
 					fmt.Println(errMsg)
-					reject.Invoke(errMsg)
+					// Restore stdout
+					w.Close()
+					os.Stdout = oldStdout
+
+					// Get the console output
+					outputBytes, _ := io.ReadAll(r)
+
+					reject.Invoke(map[string]interface{}{
+						"error":         errMsg,
+						"consoleOutput": string(outputBytes),
+					})
 					return nil
 				}
 
@@ -153,9 +294,28 @@ func tryNextProxy(proxyUrls []string, index int, resolve, reject js.Value, jsOpt
 				if err != nil {
 					errMsg := fmt.Sprintf("Failed to convert image: %s", err.Error())
 					fmt.Println(errMsg)
-					reject.Invoke(errMsg)
+
+					// Restore stdout
+					w.Close()
+					os.Stdout = oldStdout
+
+					// Get the console output
+					outputBytes, _ := io.ReadAll(r)
+
+					reject.Invoke(map[string]interface{}{
+						"error":         errMsg,
+						"consoleOutput": string(outputBytes),
+					})
 					return nil
 				}
+
+				// Flush stdout and restore
+				w.Close()
+				os.Stdout = oldStdout
+
+				// Get the console output
+				outputBytes, _ := io.ReadAll(r)
+				consoleOutputStr := string(outputBytes)
 
 				// Get the PRG data
 				prgBytes := prgBuffer.Bytes()
@@ -165,20 +325,15 @@ func tryNextProxy(proxyUrls []string, index int, resolve, reject js.Value, jsOpt
 				prgArray := js.Global().Get("Uint8Array").New(len(prgBytes))
 				js.CopyBytesToJS(prgArray, prgBytes)
 
-				// Print additional debug information to help diagnose the issue
-				fmt.Printf("DEBUG: PRG array length in JS: %d\n", prgArray.Get("length").Int())
-				fmt.Printf("DEBUG: PRG array type: %s\n", prgArray.Get("constructor").Get("name").String())
-
 				// Create result object with proper initialization
 				result := js.ValueOf(map[string]interface{}{
-					"data":         prgArray,
-					"size":         js.ValueOf(len(prgBytes)),
-					"graphicsType": js.ValueOf(converter.FinalGraphicsType.String()),
-					"message":      js.ValueOf("Image successfully converted to PRG"),
+					"data":          prgArray,
+					"size":          js.ValueOf(len(prgBytes)),
+					"graphicsType":  js.ValueOf(converter.FinalGraphicsType.String()),
+					"message":       js.ValueOf("Image successfully converted to PRG"),
+					"consoleOutput": js.ValueOf(consoleOutputStr),
 				})
 
-				// Inside your Go code, right before invoking the resolve function:
-				fmt.Printf("Sending result to JavaScript: %+v\n", result)
 				resolve.Invoke(result)
 				return nil
 			}),
@@ -233,6 +388,12 @@ func convertDirectImageData(this js.Value, args []js.Value) interface{} {
 		resolve := handlerArgs[0]
 		reject := handlerArgs[1]
 
+		// Save original stdout
+		oldStdout := os.Stdout
+		// Create a pipe to capture output
+		r, w, _ := os.Pipe()
+		os.Stdout = w
+
 		// Convert JS Uint8Array to Go byte slice
 		imageBytes := make([]byte, jsImageData.Length())
 		js.CopyBytesToGo(imageBytes, jsImageData)
@@ -257,16 +418,122 @@ func convertDirectImageData(this js.Value, args []js.Value) interface{} {
 				fmt.Printf("Setting bitpair colors to: %s\n", options.BitpairColorsString)
 			}
 
-			// Set display option
+			// Set bitpair colors 2 if specified
+			if bpc2 := jsOptions.Get("bitpairColors2"); bpc2.Type() == js.TypeString && bpc2.String() != "" {
+				options.BitpairColorsString2 = bpc2.String()
+				fmt.Printf("Setting bitpair colors 2 to: %s\n", options.BitpairColorsString2)
+			}
+
+			// Set bitpair colors 3 if specified
+			if bpc3 := jsOptions.Get("bitpairColors3"); bpc3.Type() == js.TypeString && bpc3.String() != "" {
+				options.BitpairColorsString3 = bpc3.String()
+				fmt.Printf("Setting bitpair colors 3 to: %s\n", options.BitpairColorsString3)
+			}
+
+			// Add all other options as previously implemented in fetchImageData
 			if display := jsOptions.Get("display"); display.Type() == js.TypeBoolean {
 				options.Display = display.Bool()
 				fmt.Printf("Setting display option to: %v\n", options.Display)
 			}
 
-			// Set brute force option
 			if bf := jsOptions.Get("bruteForce"); bf.Type() == js.TypeBoolean {
 				options.BruteForce = bf.Bool()
 				fmt.Printf("Setting brute force option to: %v\n", options.BruteForce)
+			}
+
+			if interlace := jsOptions.Get("interlace"); interlace.Type() == js.TypeBoolean {
+				options.Interlace = interlace.Bool()
+				fmt.Printf("Setting interlace option to: %v\n", options.Interlace)
+			}
+
+			if forceBorderColor := jsOptions.Get("forceBorderColor"); forceBorderColor.Type() == js.TypeNumber {
+				options.ForceBorderColor = forceBorderColor.Int()
+				fmt.Printf("Setting force border color to: %d\n", options.ForceBorderColor)
+			}
+
+			if forceXOffset := jsOptions.Get("forceXOffset"); forceXOffset.Type() == js.TypeNumber {
+				options.ForceXOffset = forceXOffset.Int()
+				fmt.Printf("Setting force X offset to: %d\n", options.ForceXOffset)
+			}
+
+			if forceYOffset := jsOptions.Get("forceYOffset"); forceYOffset.Type() == js.TypeNumber {
+				options.ForceYOffset = forceYOffset.Int()
+				fmt.Printf("Setting force Y offset to: %d\n", options.ForceYOffset)
+			}
+
+			if noPackChars := jsOptions.Get("noPackChars"); noPackChars.Type() == js.TypeBoolean {
+				options.NoPackChars = noPackChars.Bool()
+				fmt.Printf("Setting no pack chars option to: %v\n", options.NoPackChars)
+			}
+
+			if noPackEmptyChar := jsOptions.Get("noPackEmptyChar"); noPackEmptyChar.Type() == js.TypeBoolean {
+				options.NoPackEmptyChar = noPackEmptyChar.Bool()
+				fmt.Printf("Setting no pack empty char option to: %v\n", options.NoPackEmptyChar)
+			}
+
+			if forcePackEmptyChar := jsOptions.Get("forcePackEmptyChar"); forcePackEmptyChar.Type() == js.TypeBoolean {
+				options.ForcePackEmptyChar = forcePackEmptyChar.Bool()
+				fmt.Printf("Setting force pack empty char option to: %v\n", options.ForcePackEmptyChar)
+			}
+
+			if noPrevCharColors := jsOptions.Get("noPrevCharColors"); noPrevCharColors.Type() == js.TypeBoolean {
+				options.NoPrevCharColors = noPrevCharColors.Bool()
+				fmt.Printf("Setting no prev char colors option to: %v\n", options.NoPrevCharColors)
+			}
+
+			if noBitpairCounters := jsOptions.Get("noBitpairCounters"); noBitpairCounters.Type() == js.TypeBoolean {
+				options.NoBitpairCounters = noBitpairCounters.Bool()
+				fmt.Printf("Setting no bitpair counters option to: %v\n", options.NoBitpairCounters)
+			}
+
+			if noGuess := jsOptions.Get("noGuess"); noGuess.Type() == js.TypeBoolean {
+				options.NoGuess = noGuess.Bool()
+				fmt.Printf("Setting no guess option to: %v\n", options.NoGuess)
+			}
+
+			if alternativeFade := jsOptions.Get("alternativeFade"); alternativeFade.Type() == js.TypeBoolean {
+				options.AlternativeFade = alternativeFade.Bool()
+				fmt.Printf("Setting alternative fade option to: %v\n", options.AlternativeFade)
+			}
+
+			if noFade := jsOptions.Get("noFade"); noFade.Type() == js.TypeBoolean {
+				options.NoFade = noFade.Bool()
+				fmt.Printf("Setting no fade option to: %v\n", options.NoFade)
+			}
+
+			if noAnimation := jsOptions.Get("noAnimation"); noAnimation.Type() == js.TypeBoolean {
+				options.NoAnimation = noAnimation.Bool()
+				fmt.Printf("Setting no animation option to: %v\n", options.NoAnimation)
+			}
+
+			if frameDelay := jsOptions.Get("frameDelay"); frameDelay.Type() == js.TypeNumber {
+				options.FrameDelay = byte(frameDelay.Int())
+				fmt.Printf("Setting frame delay to: %d\n", options.FrameDelay)
+			}
+
+			if waitSeconds := jsOptions.Get("waitSeconds"); waitSeconds.Type() == js.TypeNumber {
+				options.WaitSeconds = waitSeconds.Int()
+				fmt.Printf("Setting wait seconds to: %d\n", options.WaitSeconds)
+			}
+
+			if d016Offset := jsOptions.Get("d016Offset"); d016Offset.Type() == js.TypeNumber {
+				options.D016Offset = d016Offset.Int()
+				fmt.Printf("Setting D016 offset to: %d\n", options.D016Offset)
+			}
+
+			if noCrunch := jsOptions.Get("noCrunch"); noCrunch.Type() == js.TypeBoolean {
+				options.NoCrunch = noCrunch.Bool()
+				fmt.Printf("Setting no crunch option to: %v\n", options.NoCrunch)
+			}
+
+			if symbols := jsOptions.Get("symbols"); symbols.Type() == js.TypeBoolean {
+				options.Symbols = symbols.Bool()
+				fmt.Printf("Setting symbols option to: %v\n", options.Symbols)
+			}
+
+			if numWorkers := jsOptions.Get("numWorkers"); numWorkers.Type() == js.TypeNumber {
+				options.NumWorkers = numWorkers.Int()
+				fmt.Printf("Setting num workers to: %d\n", options.NumWorkers)
 			}
 		}
 
@@ -276,7 +543,18 @@ func convertDirectImageData(this js.Value, args []js.Value) interface{} {
 		if err != nil {
 			errMsg := fmt.Sprintf("Failed to process image: %s", err.Error())
 			fmt.Println(errMsg)
-			reject.Invoke(errMsg)
+
+			// Restore stdout
+			w.Close()
+			os.Stdout = oldStdout
+
+			// Get the console output
+			outputBytes, _ := io.ReadAll(r)
+
+			reject.Invoke(map[string]interface{}{
+				"error":         errMsg,
+				"consoleOutput": string(outputBytes),
+			})
 			return nil
 		}
 
@@ -286,9 +564,28 @@ func convertDirectImageData(this js.Value, args []js.Value) interface{} {
 		if err != nil {
 			errMsg := fmt.Sprintf("Failed to convert image: %s", err.Error())
 			fmt.Println(errMsg)
-			reject.Invoke(errMsg)
+
+			// Restore stdout
+			w.Close()
+			os.Stdout = oldStdout
+
+			// Get the console output
+			outputBytes, _ := io.ReadAll(r)
+
+			reject.Invoke(map[string]interface{}{
+				"error":         errMsg,
+				"consoleOutput": string(outputBytes),
+			})
 			return nil
 		}
+
+		// Flush stdout and restore
+		w.Close()
+		os.Stdout = oldStdout
+
+		// Get the console output
+		outputBytes, _ := io.ReadAll(r)
+		consoleOutputStr := string(outputBytes)
 
 		// Get the PRG data
 		prgBytes := prgBuffer.Bytes()
@@ -298,20 +595,16 @@ func convertDirectImageData(this js.Value, args []js.Value) interface{} {
 		prgArray := js.Global().Get("Uint8Array").New(len(prgBytes))
 		js.CopyBytesToJS(prgArray, prgBytes)
 
-		// Print additional debug information to help diagnose the issue
-		fmt.Printf("DEBUG: PRG array length in JS: %d\n", prgArray.Get("length").Int())
-		fmt.Printf("DEBUG: PRG array type: %s\n", prgArray.Get("constructor").Get("name").String())
-
 		// Create result object with proper initialization
 		result := js.ValueOf(map[string]interface{}{
-			"data":         prgArray,
-			"size":         js.ValueOf(len(prgBytes)),
-			"graphicsType": js.ValueOf(converter.FinalGraphicsType.String()),
-			"message":      js.ValueOf("Image successfully converted to PRG"),
+			"data":          prgArray,
+			"size":          js.ValueOf(len(prgBytes)),
+			"graphicsType":  js.ValueOf(converter.FinalGraphicsType.String()),
+			"message":       js.ValueOf("Image successfully converted to PRG"),
+			"consoleOutput": js.ValueOf(consoleOutputStr),
 		})
 
-		// Inside your Go code, right before invoking the resolve function:
-		fmt.Printf("Sending result to JavaScript: %+v\n", result)
+		// Return the result
 		resolve.Invoke(result)
 		return nil
 	})

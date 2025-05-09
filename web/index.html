@@ -3,6 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
     <title>PNG2PRG Web Converter</title>
     <style>
         body {
@@ -27,7 +30,7 @@
             margin-bottom: 5px;
             font-weight: bold;
         }
-        input[type="text"], select {
+        input[type="text"], input[type="number"], select {
             width: 100%;
             padding: 8px;
             margin-bottom: 15px;
@@ -80,6 +83,7 @@
             padding-top: 15px;
             margin-top: 15px;
         }
+        /* Drag and drop styles */
         .separator-text {
             text-align: center;
             margin: 15px 0;
@@ -165,6 +169,17 @@
             cursor: pointer;
             padding: 0;
         }
+        .option-row {
+            margin-bottom: 15px;
+        }
+        .checkbox-option {
+            margin-bottom: 10px;
+        }
+        .option-help {
+            font-size: 12px;
+            color: #666;
+            margin-top: 3px;
+        }
     </style>
 </head>
 <body>
@@ -199,7 +214,7 @@
         </div>
 
         <div class="advanced-options hidden" id="advancedOptions">
-            <div>
+            <div class="option-row">
                 <label for="mode">Graphics Mode:</label>
                 <select id="mode">
                     <option value="">Auto-detect</option>
@@ -212,26 +227,184 @@
                     <option value="ecm">ECM</option>
                     <option value="mcsprites">Multicolor Sprites</option>
                     <option value="scsprites">Singlecolor Sprites</option>
+                    <option value="mcibitmap">Interlaced Multicolor Bitmap</option>
                 </select>
+                <div class="option-help">Select a specific graphics mode or let the converter automatically detect it</div>
             </div>
 
-            <div>
+            <div class="option-row">
                 <label for="bitpairColors">Bitpair Colors (comma-separated, e.g. "0,6,14,3"):</label>
                 <input type="text" id="bitpairColors" placeholder="e.g. 0,6,14,3">
+                <div class="option-help">Set custom colors for bitpairs (values 0-15)</div>
             </div>
 
-            <div>
+            <div class="option-row">
+                <label for="bitpairColors2">Secondary Bitpair Colors:</label>
+                <input type="text" id="bitpairColors2" placeholder="e.g. 0,6,14,3">
+                <div class="option-help">Secondary bitpair colors for advanced usage</div>
+            </div>
+
+            <div class="option-row">
+                <label for="bitpairColors3">Tertiary Bitpair Colors:</label>
+                <input type="text" id="bitpairColors3" placeholder="e.g. 0,6,14,3">
+                <div class="option-help">Tertiary bitpair colors for special cases</div>
+            </div>
+
+            <div class="checkbox-option">
                 <label>
                     <input type="checkbox" id="display" checked>
                     Include Displayer
                 </label>
+                <div class="option-help">Include code to display the image on a C64</div>
             </div>
 
-            <div>
+            <div class="checkbox-option">
                 <label>
                     <input type="checkbox" id="bruteForce">
                     Brute Force Optimization
                 </label>
+                <div class="option-help">Try all possible color combinations (slower but better results)</div>
+            </div>
+
+            <div class="checkbox-option">
+                <label>
+                    <input type="checkbox" id="interlace">
+                    Interlace Mode
+                </label>
+                <div class="option-help">Enable interlaced graphics mode for higher resolution effect</div>
+            </div>
+
+            <div class="option-row">
+                <label for="forceBorderColor">Force Border Color (0-15):</label>
+                <input type="number" id="forceBorderColor" min="0" max="15" placeholder="0-15">
+                <div class="option-help">Force a specific border color</div>
+            </div>
+
+            <div class="option-row">
+                <label>Image Offset:</label>
+                <div style="display: flex; gap: 10px;">
+                    <div style="flex: 1;">
+                        <label for="forceXOffset" style="display: inline;">X:</label>
+                        <input type="number" id="forceXOffset" placeholder="0">
+                    </div>
+                    <div style="flex: 1;">
+                        <label for="forceYOffset" style="display: inline;">Y:</label>
+                        <input type="number" id="forceYOffset" placeholder="0">
+                    </div>
+                </div>
+                <div class="option-help">Set X/Y offset for the input image</div>
+            </div>
+
+            <div class="checkbox-option">
+                <label>
+                    <input type="checkbox" id="noPackChars">
+                    No Pack Chars
+                </label>
+                <div class="option-help">Disable character packing optimization</div>
+            </div>
+
+            <div class="checkbox-option">
+                <label>
+                    <input type="checkbox" id="noPackEmptyChar">
+                    No Pack Empty Char
+                </label>
+                <div class="option-help">Don't optimize empty characters</div>
+            </div>
+
+            <div class="checkbox-option">
+                <label>
+                    <input type="checkbox" id="forcePackEmptyChar">
+                    Force Pack Empty Char
+                </label>
+                <div class="option-help">Force packing of empty characters</div>
+            </div>
+
+            <div class="checkbox-option">
+                <label>
+                    <input type="checkbox" id="noPrevCharColors">
+                    No Previous Char Colors
+                </label>
+                <div class="option-help">Don't use color information from previous characters</div>
+            </div>
+
+            <div class="checkbox-option">
+                <label>
+                    <input type="checkbox" id="noBitpairCounters">
+                    No Bitpair Counters
+                </label>
+                <div class="option-help">Disable bitpair counting optimization</div>
+            </div>
+
+            <div class="checkbox-option">
+                <label>
+                    <input type="checkbox" id="noGuess">
+                    No Guess
+                </label>
+                <div class="option-help">Disable automatic color guessing</div>
+            </div>
+
+            <div class="checkbox-option">
+                <label>
+                    <input type="checkbox" id="alternativeFade">
+                    Alternative Fade
+                </label>
+                <div class="option-help">Use alternative fade effect</div>
+            </div>
+
+            <div class="checkbox-option">
+                <label>
+                    <input type="checkbox" id="noFade">
+                    No Fade
+                </label>
+                <div class="option-help">Disable fade effects</div>
+            </div>
+
+            <div class="checkbox-option">
+                <label>
+                    <input type="checkbox" id="noAnimation">
+                    No Animation
+                </label>
+                <div class="option-help">Disable animation support</div>
+            </div>
+
+            <div class="option-row">
+                <label for="frameDelay">Frame Delay (0-255):</label>
+                <input type="number" id="frameDelay" min="0" max="255" placeholder="Default">
+                <div class="option-help">Set delay between animation frames</div>
+            </div>
+
+            <div class="option-row">
+                <label for="waitSeconds">Wait Time (seconds):</label>
+                <input type="number" id="waitSeconds" min="0" placeholder="Default">
+                <div class="option-help">Set how long to wait before starting animations</div>
+            </div>
+
+            <div class="option-row">
+                <label for="d016Offset">D016 Offset:</label>
+                <input type="number" id="d016Offset" placeholder="Default">
+                <div class="option-help">Fine horizontal scrolling adjustment</div>
+            </div>
+
+            <div class="checkbox-option">
+                <label>
+                    <input type="checkbox" id="noCrunch">
+                    No Crunch
+                </label>
+                <div class="option-help">Disable file size optimization</div>
+            </div>
+
+            <div class="checkbox-option">
+                <label>
+                    <input type="checkbox" id="symbols">
+                    Generate Symbols
+                </label>
+                <div class="option-help">Create symbol references for assembler</div>
+            </div>
+
+            <div class="option-row">
+                <label for="numWorkers">Number of Workers:</label>
+                <input type="number" id="numWorkers" min="1" placeholder="Default">
+                <div class="option-help">Set number of parallel processing threads</div>
             </div>
         </div>
 
@@ -253,6 +426,7 @@
     <script>
         let imageDataArray = null;
         let imageFileName = null;
+        let prgData = null;
 
         document.addEventListener('DOMContentLoaded', async () => {
             // Set up WebAssembly
@@ -279,46 +453,39 @@
             const removeImageBtn = document.getElementById('removeImageBtn');
             const imageUrlInput = document.getElementById('imageUrl');
 
-            // Handle the drag and drop events
-            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-                dropArea.addEventListener(eventName, preventDefaults, false);
+            // Handle file input change event
+            fileInput.addEventListener('change', function(e) {
+                if (this.files && this.files[0]) {
+                    handleFiles(this.files);
+                }
             });
 
-            function preventDefaults(e) {
-                e.preventDefault();
-                e.stopPropagation();
-            }
+            // Handle the drag and drop events
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                dropArea.addEventListener(eventName, function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }, false);
+            });
 
             ['dragenter', 'dragover'].forEach(eventName => {
-                dropArea.addEventListener(eventName, highlight, false);
+                dropArea.addEventListener(eventName, function() {
+                    dropArea.classList.add('active');
+                }, false);
             });
 
             ['dragleave', 'drop'].forEach(eventName => {
-                dropArea.addEventListener(eventName, unhighlight, false);
+                dropArea.addEventListener(eventName, function() {
+                    dropArea.classList.remove('active');
+                }, false);
             });
 
-            function highlight() {
-                dropArea.classList.add('active');
-            }
-
-            function unhighlight() {
-                dropArea.classList.remove('active');
-            }
-
             // Handle the dropped files
-            dropArea.addEventListener('drop', handleDrop, false);
-
-            function handleDrop(e) {
-                const dt = e.dataTransfer;
-                const files = dt.files;
+            dropArea.addEventListener('drop', function(e) {
+                const files = e.dataTransfer.files;
                 if (files.length) {
                     handleFiles(files);
                 }
-            }
-
-            // Handle file selection via input
-            fileInput.addEventListener('change', function() {
-                handleFiles(this.files);
             });
 
             // Handle paste from clipboard
@@ -399,7 +566,6 @@
             // Handle conversion
             const convertButton = document.getElementById('convertButton');
             const downloadButton = document.getElementById('downloadButton');
-            let prgData = null;
 
             convertButton.addEventListener('click', async () => {
                 const imageUrl = document.getElementById('imageUrl').value.trim();
@@ -413,31 +579,62 @@
                 showStatus('Converting image...', 'loading');
                 downloadButton.classList.add('hidden');
 
-                // Get options
+                // Collect all options from the form
                 const options = {
+                    // Graphics Options
                     mode: document.getElementById('mode').value,
                     bitpairColors: document.getElementById('bitpairColors').value,
+                    bitpairColors2: document.getElementById('bitpairColors2').value,
+                    bitpairColors3: document.getElementById('bitpairColors3').value,
+                    interlace: document.getElementById('interlace').checked,
+                    forceBorderColor: document.getElementById('forceBorderColor').value !== '' ?
+                        parseInt(document.getElementById('forceBorderColor').value) : undefined,
+                    forceXOffset: document.getElementById('forceXOffset').value !== '' ?
+                        parseInt(document.getElementById('forceXOffset').value) : undefined,
+                    forceYOffset: document.getElementById('forceYOffset').value !== '' ?
+                        parseInt(document.getElementById('forceYOffset').value) : undefined,
+
+                    // Optimization Options
+                    bruteForce: document.getElementById('bruteForce').checked,
+                    noPackChars: document.getElementById('noPackChars').checked,
+                    noPackEmptyChar: document.getElementById('noPackEmptyChar').checked,
+                    forcePackEmptyChar: document.getElementById('forcePackEmptyChar').checked,
+                    noPrevCharColors: document.getElementById('noPrevCharColors').checked,
+                    noBitpairCounters: document.getElementById('noBitpairCounters').checked,
+                    noGuess: document.getElementById('noGuess').checked,
+
+                    // Display Options
                     display: document.getElementById('display').checked,
-                    bruteForce: document.getElementById('bruteForce').checked
+                    alternativeFade: document.getElementById('alternativeFade').checked,
+                    noFade: document.getElementById('noFade').checked,
+                    noAnimation: document.getElementById('noAnimation').checked,
+                    frameDelay: document.getElementById('frameDelay').value !== '' ?
+                        parseInt(document.getElementById('frameDelay').value) : undefined,
+                    waitSeconds: document.getElementById('waitSeconds').value !== '' ?
+                        parseInt(document.getElementById('waitSeconds').value) : undefined,
+                    d016Offset: document.getElementById('d016Offset').value !== '' ?
+                        parseInt(document.getElementById('d016Offset').value) : undefined,
+
+                    // Miscellaneous
+                    noCrunch: document.getElementById('noCrunch').checked,
+                    symbols: document.getElementById('symbols').checked,
+                    numWorkers: document.getElementById('numWorkers').value !== '' ?
+                        parseInt(document.getElementById('numWorkers').value) : undefined
                 };
 
                 try {
-                    let promiseResult;
+                    let result;
 
                     // Call the WebAssembly function based on whether we have URL or image data
                     if (imageUrl) {
                         // URL-based conversion
                         console.log("Converting from URL:", imageUrl);
-                        promiseResult = convertPngToPrg(imageUrl, options);
+                        result = await convertPngToPrg(imageUrl, options);
                     } else {
                         // Direct image data conversion
                         console.log("Converting from image data, length:", imageDataArray.length);
-                        promiseResult = convertImageData(imageDataArray, options);
+                        result = await convertImageData(imageDataArray, options);
                     }
-
-                    // Wait for the promise to resolve
-                    const result = await promiseResult;
-                    console.log("Conversion result:", result);
 
                     if (!result) {
                         showStatus('Conversion failed with an unknown error', 'error');
